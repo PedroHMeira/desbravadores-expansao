@@ -16,7 +16,8 @@ const dayNames = ["Domingo", "Segunda", "Terça", "Quarta", "Quinta", "Sexta", "
 async function fetchActivitiesForMonth(year, month) {
     try {
         // A API espera o mês como 1-12, então adicionamos 1
-        const tasks = await fetchApi(`/api/tasks?year=${year}&month=${month + 1}`);
+        const taskPage = await fetchApi(`/api/tasks?year=${year}&month=${month + 1}&size=999`);
+        const tasks = taskPage.content;
         
         // Organiza as tarefas por dia para fácil acesso
         const activitiesByDay = {};

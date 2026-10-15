@@ -13,7 +13,7 @@ import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "groups")
+@Table(name = "`groups`")
 // ---- NOVA ANOTAÇÃO ADICIONADA AQUI ----
 @JsonIdentityInfo(
     generator = ObjectIdGenerators.PropertyGenerator.class,

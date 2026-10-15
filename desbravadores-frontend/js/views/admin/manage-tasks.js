@@ -4,6 +4,7 @@
 // Importa showModal e showToast com os caminhos corretos
 import { showModal } from '../../../components/modal.js';
 import { showToast as toastFunc } from '../../ui/toast.js'; // Caminho corrigido
+import { escapeHtml } from '../../utils/sanitize.js';
 
 // Garante que showToast esteja disponível globalmente
 if (typeof window.showToast === 'undefined') {
@@ -125,11 +126,11 @@ async function loadAndRenderTasks(viewElement, page = 0) {
                                             <div class="form-row">
                                                 <div class="form-group"><label>Data</label><input type="date" name="date" value="${task.date}" required></div>
                                                 <div class="form-group"><label>Hora</label><input type="time" name="time" value="${task.time}" required></div>
-                                                <div class="form-group"><label>Título</label><input type="text" name="title" value="${task.title}" required></div>
+                                                <div class="form-group"><label>Título</label><input type="text" name="title" value="${escapeHtml(task.title)}" required></div>
                                             </div>
                                             <div class="form-group">
                                                 <label>Descrição</label>
-                                                <textarea name="description">${task.description || ''}</textarea>
+                                                <textarea name="description">${escapeHtml(task.description || '')}</textarea>
                                             </div>
                                             <div class="form-actions">
                                                 <button type="submit" class="btn-action save">
@@ -150,8 +151,8 @@ async function loadAndRenderTasks(viewElement, page = 0) {
                             <tr data-task-id="${task.id}">
                                 <td>${dateFormatted}</td>
                                 <td>${timeFormatted}</td>
-                                <td>${task.title}</td>
-                                <td title="${task.description || 'Sem descrição.'}">${(task.description || '').substring(0, 30)}${(task.description || '').length > 30 ? '...' : ''}</td>
+                                <td>${escapeHtml(task.title)}</td>
+                                <td title="${escapeHtml(task.description || 'Sem descrição.')}">${escapeHtml((task.description || '').substring(0, 30))}${(task.description || '').length > 30 ? '...' : ''}</td>
                                 <td class="actions-cell">
                                     <button class="btn-action-icon edit edit-task-btn" title="Editar Tarefa" data-task-id="${task.id}">
                                         <i class="fa-solid fa-pencil"></i>
@@ -185,7 +186,7 @@ async function loadAndRenderTasks(viewElement, page = 0) {
                 const row = e.currentTarget.closest('tr');
                 const taskTitle = row.querySelector('td:nth-child(3)').textContent;
 
-                const modalBody = createConfirmationModalBody(`Tem a certeza que deseja APAGAR a tarefa: "${taskTitle}"?`, async () => {
+                const modalBody = createConfirmationModalBody(`Tem a certeza que deseja APAGAR a tarefa: "${escapeHtml(taskTitle)}"?`, async () => {
                      btn.disabled = true;
                      btn.textContent = 'Apagando...';
                     try {

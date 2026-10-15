@@ -1,5 +1,7 @@
 // js/views/grupos.js
 
+import { escapeHtml } from '../utils/sanitize.js';
+
 export async function renderGruposView(viewElement) {
     
     viewElement.innerHTML = `<div class="group-accordion-container" id="groupAccordion"><p>A carregar grupos...</p></div>`;
@@ -25,9 +27,9 @@ export async function renderGruposView(viewElement) {
             const members = detail.members || []; // MemberDTOs
             const leader = group.leader; // O líder já vem como objeto User dentro do Group
             
-            const leaderName = leader ? `${leader.name} ${leader.surname}` : 'Líder não definido';
+            const leaderName = leader ? `${escapeHtml(leader.name)} ${escapeHtml(leader.surname)}` : 'Líder não definido';
             // Usa o avatar real do líder ou um padrão
-            const leaderAvatar = leader ? (leader.avatar || 'img/escoteiro1.png') : 'img/escoteiro1.png';
+            const leaderAvatar = leader ? (escapeHtml(leader.avatar) || 'img/escoteiro1.png') : 'img/escoteiro1.png';
 
             const cardElement = document.createElement('div');
             cardElement.className = 'group-card';
@@ -39,7 +41,7 @@ export async function renderGruposView(viewElement) {
             cardElement.innerHTML = `
                 <div class="group-card-header" style="background-image: ${groupGradient};">
                     <div class="group-info">
-                        <div class="group-card-name">${group.name}</div>
+                        <div class="group-card-name">${escapeHtml(group.name)}</div>
                         <div class="group-card-details">${members.length} membro(s)</div>
                     </div>
                     <div class="group-leader-info">
@@ -56,7 +58,7 @@ export async function renderGruposView(viewElement) {
                             <div class="member-item" data-user-id="${member.id}">
                                 <img src="img/escoteiro1.png" alt="Avatar" class="avatar-img">
                                 <div class="member-info">
-                                    <div class="member-name">${member.name} ${member.surname}</div>
+                                    <div class="member-name">${escapeHtml(member.name)} ${escapeHtml(member.surname)}</div>
                                     <div class="member-rank">${member.role}</div>
                                 </div>
                                 <div class="profile-link-icon">→</div>

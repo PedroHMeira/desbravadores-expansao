@@ -53,7 +53,7 @@ loginForm.addEventListener('submit', function(event) {
     loginButton.textContent = 'Entrando...';
 
     // Lógica de Login Real com API e Redirecionamento por Cargo
-    fetch('http://localhost:8080/auth/login', {
+    fetch(`${window.API_BASE_URL}/auth/login`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

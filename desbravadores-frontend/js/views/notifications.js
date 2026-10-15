@@ -1,5 +1,7 @@
 // js/views/notifications.js
 
+import { escapeHtml } from '../utils/sanitize.js';
+
 async function markAsRead(notificationId, viewElement) {
     try {
         await fetchApi(`/api/notifications/${notificationId}/read`, { method: 'PUT' });
@@ -37,7 +39,7 @@ export async function renderNotificationsView(viewElement) {
                                 ${n.read ? '✔️' : '🔔'}
                             </div>
                             <div class="notification-content">
-                                <p>${n.message}</p>
+                                <p>${escapeHtml(n.message)}</p>
                                 <span class="notification-time">${new Date(n.createdAt).toLocaleString('pt-BR')}</span>
                             </div>
                         </div>

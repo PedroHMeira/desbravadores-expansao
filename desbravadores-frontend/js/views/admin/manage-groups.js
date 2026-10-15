@@ -7,6 +7,7 @@ if (typeof window.showToast === 'undefined') {
 }
 // Importa showModal (ajuste o caminho se necessário)
 import { showModal } from '../../../components/modal.js';
+import { escapeHtml } from '../../utils/sanitize.js';
 
 const GROUP_PAGE_SIZE = 5; // Define o tamanho da página
 let editingGroupId = null; // NOVO: Controla qual grupo está sendo editado
@@ -72,7 +73,7 @@ async function loadGroupList(container, page = 0) {
 
     // Prepara as <options> de monitores para o formulário de edição
     const monitorOptionsHtml = monitors.map(monitor =>
-        `<option value="${monitor.id}">${monitor.name} ${monitor.surname}</option>`
+        `<option value="${monitor.id}">${escapeHtml(monitor.name)} ${escapeHtml(monitor.surname)}</option>`
     ).join('');
 
 
@@ -93,7 +94,7 @@ async function loadGroupList(container, page = 0) {
             ${groupDetailsList.map(details => {
                 const group = details.group;
                 const members = details.members;
-                const leaderName = group.leader ? `${group.leader.name} ${group.leader.surname}` : 'Sem líder';
+                const leaderName = group.leader ? `${escapeHtml(group.leader.name)} ${escapeHtml(group.leader.surname)}` : 'Sem líder';
                 
                 // NOVO: Verifica se este é o grupo em edição
                 if (editingGroupId === group.id) {
@@ -104,7 +105,7 @@ async function loadGroupList(container, page = 0) {
                                     <div class="form-row">
                                         <div class="form-group">
                                             <label>Nome do Grupo</label>
-                                            <input type="text" name="name" value="${group.name}" required>
+                                            <input type="text" name="name" value="${escapeHtml(group.name)}" required>
                                         </div>
                                         <div class="form-group">
                                             <label>Líder</label>
@@ -131,14 +132,14 @@ async function loadGroupList(container, page = 0) {
                 // Renderização padrão
                 return `
                   <tr data-group-id="${group.id}">
-                    <td>${group.name}</td>
+                    <td>${escapeHtml(group.name)}</td>
                     <td>${leaderName}</td>
                     <td>${members.length}</td>
                     <td class="actions-cell">
                         <button class="btn-action-icon edit edit-group-btn" title="Editar Grupo" data-group-id="${group.id}">
                             <i class="fa-solid fa-pencil"></i>
                         </button>
-                        <button class="btn-action-icon delete delete-group-btn" title="Apagar Grupo" data-group-id="${group.id}" data-group-name="${group.name}">
+                        <button class="btn-action-icon delete delete-group-btn" title="Apagar Grupo" data-group-id="${group.id}" data-group-name="${escapeHtml(group.name)}">
                             <i class="fa-solid fa-trash-can"></i>
                         </button>
                     </td>
@@ -198,7 +199,7 @@ function addEventListeners(container, currentPage) {
             const groupName = e.currentTarget.dataset.groupName;
 
             const modalBody = document.createElement('div');
-            modalBody.innerHTML = `<p>Tem a certeza que deseja APAGAR o grupo: "<strong>${groupName}</strong>"?</p><p>Todos os membros ficarão sem grupo.</p>`;
+            modalBody.innerHTML = `<p>Tem a certeza que deseja APAGAR o grupo: "<strong>${escapeHtml(groupName)}</strong>"?</p><p>Todos os membros ficarão sem grupo.</p>`;
             const confirmButton = document.createElement('button');
             confirmButton.textContent = 'Confirmar Exclusão';
             confirmButton.className = 'action-btn';

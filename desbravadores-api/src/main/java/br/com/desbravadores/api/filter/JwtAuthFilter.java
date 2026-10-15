@@ -2,6 +2,8 @@ package br.com.desbravadores.api.filter;
 
 import java.io.IOException;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -20,6 +22,8 @@ import jakarta.servlet.http.HttpServletResponse;
 @Component
 public class JwtAuthFilter extends OncePerRequestFilter {
 
+    private static final Logger log = LoggerFactory.getLogger(JwtAuthFilter.class);
+
     @Autowired
     private TokenService tokenService;
 
@@ -29,10 +33,8 @@ public class JwtAuthFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        
-        // --- LOGS DE DEPURACAO ---
-        System.out.println("\n--- JWT AUTH FILTER ---");
-        System.out.println("A processar requisição para: " + request.getRequestURI());
+
+        log.debug("Processando requisição para: {}", request.getRequestURI());
 
         String authHeader = request.getHeader("Authorization");
         String token = null;
@@ -40,34 +42,29 @@ public class JwtAuthFilter extends OncePerRequestFilter {
 
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             token = authHeader.substring(7);
-            System.out.println("Token encontrado no cabeçalho.");
             try {
                 username = tokenService.extractUsername(token);
-                System.out.println("Username extraído do token: " + username);
+                log.debug("Username extraído do token: {}", username);
             } catch (Exception e) {
-                System.out.println("Erro ao extrair username do token: " + e.getMessage());
+                log.debug("Erro ao extrair username do token: {}", e.getMessage());
             }
         } else {
-            System.out.println("Nenhum cabeçalho 'Authorization' com 'Bearer' token encontrado.");
+            log.debug("Nenhum cabeçalho 'Authorization' com 'Bearer' token encontrado.");
         }
 
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            System.out.println("Contexto de segurança está vazio. A carregar detalhes do utilizador...");
             UserDetails userDetails = userDetailsService.loadUserByUsername(username);
 
-            // ---- ESTE É O LOG MAIS IMPORTANTE ----
-            System.out.println("PERMISSÕES (AUTHORITIES) CARREGADAS PARA O UTILIZADOR: " + userDetails.getAuthorities());
-            
+            log.debug("Permissões carregadas para o utilizador: {}", userDetails.getAuthorities());
+
             if (tokenService.validateToken(token, userDetails)) {
-                System.out.println("Token é VÁLIDO. A configurar contexto de segurança.");
                 UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             } else {
-                System.out.println("Validação do token FALHOU.");
+                log.debug("Validação do token FALHOU.");
             }
         }
-        System.out.println("--- FIM DO FILTRO JWT ---");
         filterChain.doFilter(request, response);
     }
 }

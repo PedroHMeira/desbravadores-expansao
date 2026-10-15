@@ -2,6 +2,8 @@
 
 // A função fetchApi está disponível globalmente
 
+import { escapeHtml } from '../../utils/sanitize.js';
+
 // --- ESTADO LOCAL PARA PAGINAÇÃO ---
 let currentPage = 0;
 const pageSize = 5; // Define 5 registros por página
@@ -106,11 +108,11 @@ async function renderUserList(viewElement, groupId = null) {
                         <tr>
                             <td>
                                 <div class="user-info-cell">
-                                    <img src="${user.avatar || 'img/escoteiro1.png'}" alt="Avatar" class="avatar-img-small" />
-                                    <span>${user.name} ${user.surname}</span>
+                                    <img src="${escapeHtml(user.avatar) || 'img/escoteiro1.png'}" alt="Avatar" class="avatar-img-small" />
+                                    <span>${escapeHtml(user.name)} ${escapeHtml(user.surname)}</span>
                                 </div>
                             </td>
-                            <td>${user.group ? user.group.name : 'Sem grupo'}</td>
+                            <td>${user.group ? escapeHtml(user.group.name) : 'Sem grupo'}</td>
                             <td>${user.level}</td>
                             <td>
                                 <button class="action-btn-small manage-user-btn" data-user-id="${user.id}">Gerir</button>
@@ -150,8 +152,8 @@ async function renderReportWidget(viewElement) {
                 .map(detail => detail.group) 
                 .filter(group => group && group.id && group.name);
             
-            groupOptionsHTML = fetchedGroups.map(group => 
-                `<option value="${group.id}">${group.name}</option>`
+            groupOptionsHTML = fetchedGroups.map(group =>
+                `<option value="${group.id}">${escapeHtml(group.name)}</option>`
             ).join('');
             
         } catch (error) {
@@ -236,7 +238,7 @@ async function renderReportWidget(viewElement) {
                     <tbody>
                         ${reportData.map(item => `
                             <tr>
-                                <td>${item.name}</td>
+                                <td>${escapeHtml(item.name)}</td>
                                 <td class="status-${item.status.toLowerCase()}">${item.status}</td>
                             </tr>
                         `).join('')}

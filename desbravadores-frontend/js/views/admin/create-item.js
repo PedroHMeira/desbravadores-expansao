@@ -2,6 +2,7 @@
 
 // NOVO: Importa modal para confirmação de exclusão
 import { showModal } from '../../../components/modal.js';
+import { escapeHtml } from '../../utils/sanitize.js';
 
 // --- NOVO ESTADO ---
 const ITEM_PAGE_SIZE = 5; 
@@ -69,11 +70,11 @@ async function loadAndRenderAchievements(container, page = 0) {
                         <form class="edit-achievement-form" data-id="${ach.id}" style="width: 100%;">
                             <div class="form-group">
                                 <label>Nome</label>
-                                <input type="text" name="name" value="${ach.name}" class="form-control" required>
+                                <input type="text" name="name" value="${escapeHtml(ach.name)}" class="form-control" required>
                             </div>
                             <div class="form-group">
                                 <label>Descrição</label>
-                                <textarea name="description" class="form-control" required>${ach.description}</textarea>
+                                <textarea name="description" class="form-control" required>${escapeHtml(ach.description)}</textarea>
                             </div>
                             <div class="form-row">
                                 <div class="form-group">
@@ -108,13 +109,13 @@ async function loadAndRenderAchievements(container, page = 0) {
                 // Renderização Padrão
                 return `
                 <div class="list-item-preview">
-                    <img src="http://localhost:8080${ach.icon.replace('/uploads/', '/file/')}" alt="${ach.name}" class="preview-icon">
-                    <span style="flex: 1;"><strong>${ach.name}</strong><br><small>${ach.description.substring(0, 50)}...</small></span>
+                    <img src="${window.API_BASE_URL}${ach.icon.replace('/uploads/', '/file/')}" alt="${escapeHtml(ach.name)}" class="preview-icon">
+                    <span style="flex: 1;"><strong>${escapeHtml(ach.name)}</strong><br><small>${escapeHtml(ach.description.substring(0, 50))}...</small></span>
                     <div class="item-actions">
                          <button class="btn-action-icon edit edit-ach-btn" title="Editar Conquista" data-id="${ach.id}">
                             <i class="fa-solid fa-pencil"></i>
                          </button>
-                         <button class="btn-action-icon delete delete-ach-btn" title="Apagar Conquista" data-id="${ach.id}" data-name="${ach.name}">
+                         <button class="btn-action-icon delete delete-ach-btn" title="Apagar Conquista" data-id="${ach.id}" data-name="${escapeHtml(ach.name)}">
                             <i class="fa-solid fa-trash-can"></i>
                          </button>
                     </div>
@@ -154,7 +155,7 @@ function addAchievementListeners(container, currentPage) {
             const name = e.currentTarget.dataset.name;
             
             const modalBody = document.createElement('div');
-            modalBody.innerHTML = `<p>Tem a certeza que quer apagar a conquista "<strong>${name}</strong>"?</p>`;
+            modalBody.innerHTML = `<p>Tem a certeza que quer apagar a conquista "<strong>${escapeHtml(name)}</strong>"?</p>`;
             const confirmBtn = document.createElement('button');
             confirmBtn.textContent = 'Confirmar';
             confirmBtn.className = 'action-btn';
@@ -241,9 +242,9 @@ async function loadAndRenderBackgrounds(container, page = 0) {
         
         if (backgroundPage.totalElements > 0) {
             container.innerHTML = backgrounds.map(bg => {
-                const style = bg.imageUrl 
-                    ? `background: url(http://localhost:8080${bg.imageUrl.replace('/uploads/', '/file/')}) center/cover no-repeat; color: ${bg.textColor};`
-                    : `background: ${bg.gradient}; color: ${bg.textColor};`;
+                const style = bg.imageUrl
+                    ? `background: url(${window.API_BASE_URL}${bg.imageUrl.replace('/uploads/', '/file/')}) center/cover no-repeat; color: ${escapeHtml(bg.textColor)};`
+                    : `background: ${escapeHtml(bg.gradient)}; color: ${escapeHtml(bg.textColor)};`;
                 
                 // NOVO: Renderiza formulário de edição
                 if (editingBackgroundId === bg.id) {
@@ -252,15 +253,15 @@ async function loadAndRenderBackgrounds(container, page = 0) {
                         <form class="edit-background-form" data-id="${bg.id}" style="width: 100%;">
                             <div class="form-group">
                                 <label>Nome</label>
-                                <input type="text" name="name" value="${bg.name}" class="form-control" required>
+                                <input type="text" name="name" value="${escapeHtml(bg.name)}" class="form-control" required>
                             </div>
                             <div class="form-group">
                                 <label>Cor do Texto (ex: #FFFFFF)</label>
-                                <input type="text" name="textColor" value="${bg.textColor}" class="form-control" required>
+                                <input type="text" name="textColor" value="${escapeHtml(bg.textColor)}" class="form-control" required>
                             </div>
                             <div class="form-group">
                                 <label>Gradiente (ex: linear-gradient(to right, #ff7e5f, #feb47b))</label>
-                                <input type="text" name="gradient" value="${bg.gradient || ''}" class="form-control">
+                                <input type="text" name="gradient" value="${escapeHtml(bg.gradient || '')}" class="form-control">
                             </div>
                             <div class="form-group">
                                 <label>Nova Imagem (Opcional)</label>
@@ -282,12 +283,12 @@ async function loadAndRenderBackgrounds(container, page = 0) {
                 // Renderização Padrão
                 return `
                     <div class="list-item-preview" style="${style}">
-                        <span style="background-color: rgba(0,0,0,0.5); padding: 5px; border-radius: 5px; flex: 1;"><strong>${bg.name}</strong></span>
+                        <span style="background-color: rgba(0,0,0,0.5); padding: 5px; border-radius: 5px; flex: 1;"><strong>${escapeHtml(bg.name)}</strong></span>
                         <div class="item-actions">
                              <button class="btn-action-icon edit edit-bg-btn" title="Editar Fundo" data-id="${bg.id}">
                                 <i class="fa-solid fa-pencil"></i>
                              </button>
-                             <button class="btn-action-icon delete delete-bg-btn" title="Apagar Fundo" data-id="${bg.id}" data-name="${bg.name}">
+                             <button class="btn-action-icon delete delete-bg-btn" title="Apagar Fundo" data-id="${bg.id}" data-name="${escapeHtml(bg.name)}">
                                 <i class="fa-solid fa-trash-can"></i>
                              </button>
                         </div>
@@ -327,7 +328,7 @@ function addBackgroundListeners(container, currentPage) {
             const name = e.currentTarget.dataset.name;
             
             const modalBody = document.createElement('div');
-            modalBody.innerHTML = `<p>Tem a certeza que quer apagar o fundo "<strong>${name}</strong>"?</p>`;
+            modalBody.innerHTML = `<p>Tem a certeza que quer apagar o fundo "<strong>${escapeHtml(name)}</strong>"?</p>`;
             const confirmBtn = document.createElement('button');
             confirmBtn.textContent = 'Confirmar';
             confirmBtn.className = 'action-btn';
