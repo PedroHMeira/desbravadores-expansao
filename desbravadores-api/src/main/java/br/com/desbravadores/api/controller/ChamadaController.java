@@ -20,23 +20,17 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import br.com.desbravadores.api.dto.AttendanceHistoryDTO;
+import br.com.desbravadores.api.dto.ChamadaDayRecordDTO;
+import br.com.desbravadores.api.dto.ChamadaRecordInput;
+import br.com.desbravadores.api.dto.ChamadaSubmitRequest;
 import br.com.desbravadores.api.model.AttendanceRecord;
+import br.com.desbravadores.api.model.AttendanceStatus;
 import br.com.desbravadores.api.model.Group;
 import br.com.desbravadores.api.model.Role;
 import br.com.desbravadores.api.model.User;
 import br.com.desbravadores.api.repository.AttendanceRecordRepository;
 import br.com.desbravadores.api.repository.UserRepository;
-import br.com.desbravadores.api.service.AttendanceService; // <--- IMPORT ADICIONADO AQUI
-
-class AttendancePayload {
-    private LocalDate date;
-    private List<Long> presentUserIds;
-
-    public LocalDate getDate() { return date; }
-    public void setDate(LocalDate date) { this.date = date; }
-    public List<Long> getPresentUserIds() { return presentUserIds; }
-    public void setPresentUserIds(List<Long> presentUserIds) { this.presentUserIds = presentUserIds; }
-}
+import br.com.desbravadores.api.service.AttendanceService;
 
 @RestController
 @RequestMapping("/api/chamada")
@@ -49,52 +43,138 @@ public class ChamadaController {
     private AttendanceRecordRepository attendanceRepository;
 
     @Autowired
-    private AttendanceService attendanceService; // Agora deve funcionar
+    private AttendanceService attendanceService;
 
-    @GetMapping("/my-group-members")
+    @GetMapping("/members")
     @PreAuthorize("hasAnyAuthority('MONITOR', 'DIRETOR')")
-    public ResponseEntity<List<User>> getMyGroupMembers(Authentication authentication) {
+    public ResponseEntity<?> getGroupMembers(
+            @RequestParam(value = "groupId", required = false) Long groupId,
+            Authentication authentication) {
+
         User currentUser = userRepository.findByEmail(authentication.getName()).orElseThrow();
-        if (currentUser.getGroup() == null) {
+        Group targetGroup;
+        try {
+            targetGroup = attendanceService.resolveTargetGroup(currentUser, groupId, true);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+
+        if (targetGroup == null) {
             return ResponseEntity.ok(List.of());
         }
-        List<User> members = userRepository.findByGroupIdAndRole(currentUser.getGroup().getId(), Role.DESBRAVADOR);
+
+        List<User> members = userRepository.findByGroupIdAndRole(targetGroup.getId(), Role.DESBRAVADOR);
         return ResponseEntity.ok(members);
     }
 
-    @PostMapping("/submit")
-    @PreAuthorize("hasAuthority('MONITOR')")
-    @Transactional
-    public ResponseEntity<?> submitAttendance(@RequestBody AttendancePayload payload, Authentication authentication) {
-        User monitor = userRepository.findByEmail(authentication.getName()).orElseThrow();
-        Group monitorGroup = monitor.getGroup();
-        
-        if (monitorGroup == null) {
-            return ResponseEntity.status(403).body(Map.of("message", "Erro: O monitor não está associado a nenhum grupo."));
+    @GetMapping("/day")
+    @PreAuthorize("hasAnyAuthority('MONITOR', 'DIRETOR')")
+    public ResponseEntity<?> getChamadaDay(
+            @RequestParam("date") String dateString,
+            @RequestParam(value = "groupId", required = false) Long groupId,
+            Authentication authentication) {
+
+        User currentUser = userRepository.findByEmail(authentication.getName()).orElseThrow();
+        Group targetGroup;
+        try {
+            targetGroup = attendanceService.resolveTargetGroup(currentUser, groupId, true);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
 
-        List<Long> presentUserIds = payload.getPresentUserIds();
+        if (targetGroup == null) {
+            return ResponseEntity.ok(List.of());
+        }
+
+        LocalDate date = LocalDate.parse(dateString);
+        List<ChamadaDayRecordDTO> existing = attendanceRepository.findByGroupIdAndDate(targetGroup.getId(), date)
+            .stream()
+            .map(ChamadaDayRecordDTO::new)
+            .collect(Collectors.toList());
+
+        return ResponseEntity.ok(existing);
+    }
+
+    @PostMapping("/submit")
+    @PreAuthorize("hasAnyAuthority('MONITOR', 'DIRETOR')")
+    @Transactional
+    public ResponseEntity<?> submitChamada(@RequestBody ChamadaSubmitRequest payload, Authentication authentication) {
+        User currentUser = userRepository.findByEmail(authentication.getName()).orElseThrow();
+        boolean isDirector = currentUser.getRole() == Role.DIRETOR;
+
+        Group targetGroup;
+        try {
+            targetGroup = attendanceService.resolveTargetGroup(currentUser, payload.getGroupId(), true);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+        if (targetGroup == null) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Você não está associado a nenhum grupo."));
+        }
+
+        if (payload.getDate() == null) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Erro: data da chamada é obrigatória."));
+        }
+        try {
+            attendanceService.validateChamadaDate(payload.getDate(), isDirector);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
+        }
+
+        List<ChamadaRecordInput> inputRecords = payload.getRecords() != null ? payload.getRecords() : List.of();
+
+        List<User> roster = userRepository.findByGroupIdAndRole(targetGroup.getId(), Role.DESBRAVADOR);
+        Set<Long> rosterIds = roster.stream().map(User::getId).collect(Collectors.toSet());
+        Set<Long> payloadIds = inputRecords.stream().map(ChamadaRecordInput::getUserId).collect(Collectors.toSet());
+
+        if (!rosterIds.equals(payloadIds)) {
+            return ResponseEntity.badRequest().body(Map.of("message",
+                "Todos os desbravadores do grupo precisam ter um status antes de submeter a chamada."));
+        }
+
+        Map<Long, User> usersById = roster.stream().collect(Collectors.toMap(User::getId, u -> u));
         LocalDate date = payload.getDate();
 
-        if (date.isBefore(LocalDate.now())) {
-            return ResponseEntity.badRequest().body(Map.of("message", "Erro: Não é possível registrar chamada para uma data passada."));
+        for (ChamadaRecordInput input : inputRecords) {
+            if (input.getStatus() == null) {
+                return ResponseEntity.badRequest().body(Map.of("message",
+                    "Erro: status é obrigatório para todos os desbravadores."));
+            }
+            if (input.getStatus() == AttendanceStatus.FALTA_JUSTIFICADA
+                    && (input.getJustification() == null || input.getJustification().isBlank())) {
+                return ResponseEntity.badRequest().body(Map.of("message",
+                    "Erro: motivo é obrigatório quando o status é Falta Justificada."));
+            }
+
+            AttendanceRecord record = attendanceRepository.findByUserIdAndDate(input.getUserId(), date)
+                .orElseGet(AttendanceRecord::new);
+
+            record.setUser(usersById.get(input.getUserId()));
+            record.setGroup(targetGroup);
+            record.setDate(date);
+            record.setRecordedBy(currentUser);
+            record.setStatus(input.getStatus());
+
+            if (input.getStatus() == AttendanceStatus.PRESENTE) {
+                record.setJustification(null);
+                record.setLenco(input.isLenco());
+                record.setCamisa(input.isCamisa());
+                record.setCalca(input.isCalca());
+                record.setTenis(input.isTenis());
+            } else {
+                // Uniforme só faz sentido quando o aluno esteve presente.
+                record.setJustification(input.getStatus() == AttendanceStatus.FALTA_JUSTIFICADA
+                    ? input.getJustification() : null);
+                record.setLenco(false);
+                record.setCamisa(false);
+                record.setCalca(false);
+                record.setTenis(false);
+            }
+
+            attendanceRepository.save(record);
         }
 
-        List<User> presentUsers = userRepository.findAllById(presentUserIds);
-        
-        List<AttendanceRecord> records = presentUsers.stream().map(user -> {
-            AttendanceRecord record = new AttendanceRecord();
-            record.setUser(user);
-            record.setGroup(monitorGroup);
-            record.setDate(date);
-            record.setRecordedBy(monitor);
-            return record;
-        }).collect(Collectors.toList());
-
-        attendanceRepository.saveAll(records);
-
-        String message = "Chamada para o dia " + date + " registada com sucesso!";
-        return ResponseEntity.ok(Map.of("message", message));
+        return ResponseEntity.ok(Map.of("message", "Chamada para o dia " + date + " registada com sucesso!"));
     }
 
     @GetMapping("/history")
@@ -111,43 +191,38 @@ public class ChamadaController {
         @RequestParam("date") String dateString,
         @RequestParam(value = "groupId", required = false) Long groupId,
         Authentication authentication) {
-        
+
         LocalDate date = LocalDate.parse(dateString);
         User currentUser = userRepository.findByEmail(authentication.getName()).orElseThrow();
-        
-        Long targetGroupId = null;
-        boolean isDirector = currentUser.getRole() == Role.DIRETOR;
 
-        if (isDirector) {
-            if (groupId == null) {
-                targetGroupId = currentUser.getGroup() != null ? currentUser.getGroup().getId() : null;
-            } else {
-                targetGroupId = groupId;
-            }
-        } else {
-            if (currentUser.getGroup() == null) {
-                 return ResponseEntity.ok(List.of());
-            }
-            targetGroupId = currentUser.getGroup().getId();
+        Group targetGroup;
+        try {
+            targetGroup = attendanceService.resolveTargetGroup(currentUser, groupId, false);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("message", e.getMessage()));
         }
 
-        if (targetGroupId == null) {
+        if (targetGroup == null) {
             return ResponseEntity.ok(List.of());
         }
 
-        List<User> allMembers = userRepository.findByGroupId(targetGroupId); 
-        allMembers.removeIf(user -> user.getRole() == Role.DIRETOR); 
-        List<AttendanceRecord> presentRecords = attendanceRepository.findByGroupIdAndDate(targetGroupId, date);
-        Set<Long> presentUserIds = presentRecords.stream()
-                                    .map(record -> record.getUser().getId())
-                                    .collect(Collectors.toSet());
+        List<User> allMembers = userRepository.findByGroupIdAndRole(targetGroup.getId(), Role.DESBRAVADOR);
+        List<AttendanceRecord> records = attendanceRepository.findByGroupIdAndDate(targetGroup.getId(), date);
+        Map<Long, AttendanceRecord> recordsByUserId = records.stream()
+            .collect(Collectors.toMap(r -> r.getUser().getId(), r -> r));
 
         List<Map<String, Object>> report = allMembers.stream().map(member -> {
-            String status = presentUserIds.contains(member.getId()) ? "PRESENTE" : "AUSENTE";
+            AttendanceRecord record = recordsByUserId.get(member.getId());
             Map<String, Object> reportItem = new HashMap<>();
             reportItem.put("id", member.getId());
             reportItem.put("name", member.getName() + " " + member.getSurname());
-            reportItem.put("status", status);
+            // Sem registo para a data = chamada ainda não foi feita nesse dia; mantém o rótulo antigo.
+            reportItem.put("status", record != null ? record.getStatus().name() : "AUSENTE");
+            reportItem.put("justification", record != null ? record.getJustification() : null);
+            reportItem.put("lenco", record != null && record.isLenco());
+            reportItem.put("camisa", record != null && record.isCamisa());
+            reportItem.put("calca", record != null && record.isCalca());
+            reportItem.put("tenis", record != null && record.isTenis());
             return reportItem;
         }).collect(Collectors.toList());
 

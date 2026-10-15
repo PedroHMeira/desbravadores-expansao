@@ -159,38 +159,49 @@ function renderIdentityBlock(viewElement, user) {
 	            return;
 	        }
 	
+	        const statusInfo = {
+	            PRESENTE: { cssClass: 'present', label: 'Presente' },
+	            FALTA: { cssClass: 'absent', label: 'Falta' },
+	            FALTA_JUSTIFICADA: { cssClass: 'justified', label: 'Falta Justificada' },
+	        };
+
 	        const historyHtml = history.map(record => {
-	            const statusClass = record.present ? 'present' : 'absent';
-	            const statusText = record.present ? 'PRESENTE' : 'AUSENTE';
-	            const dateFormatted = new Date(record.date).toLocaleDateString('pt-BR', { year: 'numeric', month: 'long', day: 'numeric' });
-	
+	            const info = statusInfo[record.status] || statusInfo.FALTA;
+	            const dateFormatted = new Date(record.date + 'T00:00:00').toLocaleDateString('pt-BR', { year: 'numeric', month: 'long', day: 'numeric' });
+	            const uniformCount = [record.lenco, record.camisa, record.calca, record.tenis].filter(Boolean).length;
+
 	            return `
-	                <div class="attendance-record ${statusClass}">
+	                <div class="attendance-record ${info.cssClass}">
 	                    <span class="date">${dateFormatted}</span>
-	                    <span class="status">${statusText}</span>
-	                    <span class="group">${record.groupName}</span>
+	                    <span class="status" title="${record.justification ? escapeHtml(record.justification) : ''}">${info.label}</span>
+	                    ${record.status === 'PRESENTE' ? `<span class="uniform">Uniforme: ${uniformCount}/4</span>` : ''}
+	                    <span class="group">${escapeHtml(record.groupName)}</span>
 	                </div>
 	            `;
 	        }).join('');
-	
+
 	        tabContent.innerHTML = `
 	            <style>
 	                .attendance-record {
 	                    display: flex;
 	                    justify-content: space-between;
 	                    align-items: center;
+	                    gap: 10px;
 	                    padding: 10px;
 	                    margin-bottom: 5px;
 	                    border-radius: 5px;
-	                    background-color: var(--bg-light);
+	                    background-color: var(--bg-secondary);
 	                    border-left: 5px solid;
 	                }
-	                .attendance-record.present { border-left-color: var(--scout-green); }
-	                .attendance-record.absent { border-left-color: var(--scout-red); }
+	                .attendance-record.present { border-left-color: #2e7d32; }
+	                .attendance-record.absent { border-left-color: #c62828; }
+	                .attendance-record.justified { border-left-color: #f9a825; }
 	                .attendance-record .date { font-weight: bold; }
-	                .attendance-record .status { font-size: 0.9em; padding: 3px 8px; border-radius: 3px; }
-	                .attendance-record.present .status { background-color: var(--scout-green); color: white; }
-	                .attendance-record.absent .status { background-color: var(--scout-red); color: white; }
+	                .attendance-record .status { font-size: 0.9em; padding: 3px 8px; border-radius: 3px; color: white; }
+	                .attendance-record.present .status { background-color: #2e7d32; }
+	                .attendance-record.absent .status { background-color: #c62828; }
+	                .attendance-record.justified .status { background-color: #f9a825; }
+	                .attendance-record .uniform { font-size: 0.8em; color: var(--text-secondary); }
 	                .attendance-record .group { font-size: 0.8em; color: var(--text-secondary); }
 	            </style>
 	            <div class="attendance-history-list">

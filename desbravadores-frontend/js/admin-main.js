@@ -79,14 +79,11 @@ function adjustUiForRole() {
     if (!payload) return;
     const userRole = payload.role;
 
-    const chamadaBtn = document.querySelector('.nav-btn[data-view="chamada"]');
     const manageGroupsBtn = document.querySelector('.nav-btn[data-view="manage-groups"]');
     const manageUsersBtn = document.querySelector('.nav-btn[data-view="manage-users"]');
     const createItemBtn = document.querySelector('.nav-btn[data-view="create-item"]');
 
-    if (userRole === 'DIRETOR') {
-        if (chamadaBtn) chamadaBtn.style.display = 'none';
-    } else if (userRole === 'MONITOR') {
+    if (userRole === 'MONITOR') {
         if (createItemBtn) createItemBtn.style.display = 'none';
         if (manageUsersBtn) manageUsersBtn.style.display = 'none';
         if (manageGroupsBtn) manageGroupsBtn.style.display = 'none';
