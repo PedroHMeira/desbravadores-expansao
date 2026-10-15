@@ -85,24 +85,30 @@ Uma funcionalidade por vez, nesta ordem (ver lista completa abaixo). Para cada u
 
 ## Estado atual (continuar a partir daqui)
 
-**`feature/base-producao`: concluída, mergeada na `main`** (PR #1, merge commit `7a883ed`). Testada manualmente no navegador pelo próprio Claude (Chrome via extensão, a pedido do usuário) com os três perfis (DIRETOR/MONITOR/DESBRAVADOR); detalhes em `docs/EXPANSAO.md`.
+**`feature/base-producao` e `feature/chamada-completa`: concluídas, mergeadas na `main`** (PR #1 e PR #2). Ambas testadas manualmente no navegador pelo próprio Claude (Chrome via extensão, a pedido do usuário), com os três perfis (DIRETOR/MONITOR/DESBRAVADOR); detalhes completos em `docs/EXPANSAO.md`.
 
-Durante esse teste manual foram encontrados e corrigidos 3 bugs **pré-existentes** (não introduzidos nesta expansão, mas bloqueavam uso básico):
-- `Group` mapeava para a tabela `groups`, palavra reservada desde MySQL 8.0.2 — toda query na tabela de grupos falhava com erro de sintaxe SQL, e o filtro de segurança traduzia isso em 403, derrubando a sessão de qualquer DIRETOR ao abrir o Dashboard. **Corrigido** citando o identificador: `@Table(name = "\`groups\`")`. **Atenção ao criar novas entidades:** evitar nomes de tabela que sejam palavras reservadas do MySQL 8 (`groups`, `rows`, `rank`, etc. — lista completa na doc do MySQL).
-- `/api/backgrounds` e `/api/tasks` retornam `Page<T>` (paginado), mas `perfil.js`, `home.js` e `agenda.js` tratavam a resposta como array direto. **Corrigido** extraindo `.content`. **Atenção ao consumir endpoint paginado no frontend:** sempre extrair `.content` (ver padrão já usado em `dashboard.js`, `grupos.js`, `manage-users.js`).
+`feature/chamada-completa` adicionou: status Presente/Falta/Falta Justificada (com motivo), uniforme (lenço/camisa/calça/tênis), upsert por `(user_id, date)` (chamada do dia carrega e edita em vez de duplicar), Diretor pode fazer chamada de qualquer grupo (Monitor só do próprio — 403 se tentar outro), janela de edição (Monitor: 7 dias; Diretor: qualquer passado; futuro sempre bloqueado), UI mobile-first com foto grande.
+
+**Bugs pré-existentes encontrados e corrigidos ao longo dessas duas features** (não introduzidos nesta expansão, mas bloqueavam uso básico):
+- `Group` mapeava para a tabela `groups`, palavra reservada desde MySQL 8.0.2 — toda query na tabela de grupos falhava com erro de sintaxe SQL, e o filtro de segurança traduzia isso em 403, derrubando a sessão de qualquer DIRETOR ao abrir o Dashboard. **Corrigido** citando o identificador: `@Table(name = "\`groups\`")`. **Atenção ao criar novas entidades:** evitar nomes de tabela que sejam palavras reservadas do MySQL 8 (`groups`, `rows`, `rank`, etc.).
+- `/api/backgrounds` e `/api/tasks` retornam `Page<T>` (paginado), mas `perfil.js`, `home.js` e `agenda.js` tratavam a resposta como array direto. **Corrigido** extraindo `.content`. **Atenção ao consumir endpoint paginado no frontend:** sempre extrair `.content` (ver padrão em `dashboard.js`, `grupos.js`, `manage-users.js`).
+- No filtro de grupo do relatório do Dashboard (`dashboard.js`), o listener de `change` reconstruía o widget inteiro (incluindo o `<select>`) a cada seleção, resetando a escolha antes do clique em "Gerar Relatório". **Corrigido** para só re-renderizar a lista de usuários nesse listener, sem reconstruir o widget que contém o próprio `<select>` que disparou o evento.
+- Datas vindas da API como `'YYYY-MM-DD'` exibiam o dia anterior quando `new Date(str)` é formatada em fuso atrás de UTC (ex.: Brasil). **Padrão a seguir:** sempre `new Date(str + 'T00:00:00')` antes de formatar — ver `home.js`, `perfil.js`, `dashboard.js`.
 
 **Ambiente local (Windows), pode estar assim ao retomar:**
 - Container `desbravadores-mysql` rodando via `docker compose` (porta 3306, volume `desbravadores-expansao_mysql-data` persistente).
-- API pode estar rodando via `mvnw spring-boot:run` em background (porta 8080) e frontend via `npx serve -l 5500` (porta 5500) — processos de teste desta sessão, ok encerrar se não estiverem mais rodando.
+- API pode estar rodando via `mvnw spring-boot:run` em background (porta 8080) e frontend via `npx serve -l 5500` (porta 5500) — processos de teste de sessões anteriores, ok encerrar se não estiverem mais rodando.
 - JDK 17 via winget (caminho no início deste arquivo); sempre exportar `JAVA_HOME`/`PATH` antes de usar `mvnw` fora do Docker.
+- `attendance_records` agora tem unique constraint `(user_id, date)` e `spring.sql.init.mode=always` roda `data.sql` (dedup de duplicados antigos) a cada start, antes do Hibernate atualizar o schema — ver comentários em `application.properties` e `data.sql` antes de adicionar outras unique constraints no projeto (mesma técnica se aplica).
 
-**Armadilhas descobertas nesta sessão (relevantes para continuar):**
+**Armadilhas descobertas (relevantes para continuar):**
 - O shell do Bash tool não mantém estado entre chamadas — `export JAVA_HOME=...` precisa estar na mesma chamada que usa o `mvnw`.
 - `./mvnw spring-boot:run` em background: parar a tarefa mata o wrapper, mas o `java.exe` filho continua rodando — localizar e `taskkill //F //PID` manualmente para liberar a porta 8080.
 - MySQL 8 recente resolvido pela tag `mysql:8` é a `8.4.x` — **`groups` é palavra reservada nessa versão** (ver bug acima).
 - `npx serve` serve o frontend estático sem exigir instalação prévia; o Live Server mencionado no fluxo normal de dev não estava disponível neste ambiente de teste.
 - Para testar como MONITOR/DESBRAVADOR é preciso um grupo + usuários de teste (não existem por padrão, só o admin seed) — criados via `POST /api/groups` e `POST /api/admin/users` com o token do DIRETOR, e removidos do banco ao final do teste.
 - `gh pr create` sem `--repo`/`--base` explícitos tentou abrir o PR contra o `upstream` (SilasTristoni/DesbravadoresTeste) em vez do `origin` — sempre passar `--repo PedroHMeira/desbravadores-expansao --base main` neste repositório.
+- A extensão Claude in Chrome ocasionalmente trava em `screenshot`/`find` por alguns segundos (timeout) sem o app estar realmente travado — `read_console_messages` e `get_page_text` continuam respondendo nesses casos e confirmam que a página está viva; vale checar esses antes de assumir que travou de verdade, e `javascript_tool` é mais confiável que `form_input` para inspecionar/forçar estado de formulário quando a UI parecer instável.
 
 **Próximos passos ao retomar:**
-1. Começar `feature/chamada-completa`: explorar `ChamadaController`, `AttendanceRecord`, `chamada.js`, propor plano e esperar aprovação antes de implementar.
+1. Começar `feature/relatorio-frequencia`: relatório para Diretor/Monitor com filtro por período/unidade, % presença e % uniforme completo por desbravador e média da unidade, destaque para 3+ faltas seguidas, exportação PDF e Excel. Propor plano e esperar aprovação antes de implementar.
