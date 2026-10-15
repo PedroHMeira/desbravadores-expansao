@@ -85,28 +85,24 @@ Uma funcionalidade por vez, nesta ordem (ver lista completa abaixo). Para cada u
 
 ## Estado atual (continuar a partir daqui)
 
-**`feature/base-producao`: implementada e testada, aguardando confirmação manual do usuário no navegador antes de commit/push/PR/merge.** Checklist de teste já foi passado ao usuário (login, Home, Chamada, Dashboard/Gerir Usuários/Gerir Grupos, editar Perfil, opcionalmente testar um nome com `<b>XSS</b>`).
+**`feature/base-producao`: concluída, mergeada na `main`** (PR #1, merge commit `7a883ed`). Testada manualmente no navegador pelo próprio Claude (Chrome via extensão, a pedido do usuário) com os três perfis (DIRETOR/MONITOR/DESBRAVADOR); detalhes em `docs/EXPANSAO.md`.
 
-O que foi implementado nesta feature (detalhes completos em `docs/EXPANSAO.md`, já escrito mas **ainda não commitado**):
-- Backend: `User.password` `WRITE_ONLY`; `TokenService` com chave JWT fixa via `jwt.secret`; `JwtAuthFilter`/`DataInitializer` com `Logger` em vez de `System.out`; `DataInitializer` (admin) e `WebConfig` (CORS) configuráveis por env var; `application.properties` parametrizado; `AuthService.java` (código morto que logava senha em texto puro) **apagado**; novo teste `UserJsonSerializationTest`.
-- Frontend: `js/config.js` (novo) centraliza `window.API_BASE_URL`; `js/utils/sanitize.js` (novo) com `escapeHtml()`; aplicado em `chamada.js`, `dashboard.js`, `manage-users.js`, `manage-groups.js`, `grupos.js`, `perfil.js`, `notifications.js`, `create-item.js`, `manage-achievements.js`, `manage-tasks.js`; corrigido texto solto tipo `{/* comentário */}` que aparecia na tela em `chamada.js`, `home.js` (4x) e `perfil.js`.
-- Infra: `desbravadores-api/Dockerfile` (multi-stage), `docker-compose.yml` (mysql + api, volumes persistentes), `.env.example` na raiz, `.gitignore` atualizado com `.env`.
+Durante esse teste manual foram encontrados e corrigidos 3 bugs **pré-existentes** (não introduzidos nesta expansão, mas bloqueavam uso básico):
+- `Group` mapeava para a tabela `groups`, palavra reservada desde MySQL 8.0.2 — toda query na tabela de grupos falhava com erro de sintaxe SQL, e o filtro de segurança traduzia isso em 403, derrubando a sessão de qualquer DIRETOR ao abrir o Dashboard. **Corrigido** citando o identificador: `@Table(name = "\`groups\`")`. **Atenção ao criar novas entidades:** evitar nomes de tabela que sejam palavras reservadas do MySQL 8 (`groups`, `rows`, `rank`, etc. — lista completa na doc do MySQL).
+- `/api/backgrounds` e `/api/tasks` retornam `Page<T>` (paginado), mas `perfil.js`, `home.js` e `agenda.js` tratavam a resposta como array direto. **Corrigido** extraindo `.content`. **Atenção ao consumir endpoint paginado no frontend:** sempre extrair `.content` (ver padrão já usado em `dashboard.js`, `grupos.js`, `manage-users.js`).
 
-**Verificado e funcionando:** `./mvnw test` (3/3), login manual via curl, token sobrevive a restart da API, `GET /api/users/1` sem `password`, `docker compose up` de ponta a ponta (build da imagem + MySQL healthy + login no container).
-
-**Git status da branch (não commitado ainda):** arquivos novos — `.env.example`, `desbravadores-api/Dockerfile`, `desbravadores-api/src/test/java/.../model/UserJsonSerializationTest.java`, `desbravadores-frontend/js/config.js`, `desbravadores-frontend/js/utils/sanitize.js`, `docker-compose.yml`, `docs/EXPANSAO.md`. Arquivos modificados — ver lista em `docs/EXPANSAO.md`. Arquivo deletado — `desbravadores-api/service/AuthService.java`.
-
-**Estado do ambiente local (Windows):**
-- Container `desbravadores-mysql` rodando via `docker compose` (porta 3306, volume `desbravadores-expansao_mysql-data` — dados persistem entre restarts). O container standalone antigo (sem compose) foi removido.
-- Container `desbravadores-api` parado (`docker compose stop api`) — propositalmente, para o usuário testar rodando a API manualmente com `mvnw`.
-- JDK 17 instalado via winget (ver caminho acima); JDK padrão do sistema continua sendo a 26, então sempre exportar `JAVA_HOME`/`PATH` antes de usar `mvnw` fora do Docker.
+**Ambiente local (Windows), pode estar assim ao retomar:**
+- Container `desbravadores-mysql` rodando via `docker compose` (porta 3306, volume `desbravadores-expansao_mysql-data` persistente).
+- API pode estar rodando via `mvnw spring-boot:run` em background (porta 8080) e frontend via `npx serve -l 5500` (porta 5500) — processos de teste desta sessão, ok encerrar se não estiverem mais rodando.
+- JDK 17 via winget (caminho no início deste arquivo); sempre exportar `JAVA_HOME`/`PATH` antes de usar `mvnw` fora do Docker.
 
 **Armadilhas descobertas nesta sessão (relevantes para continuar):**
-- O shell do Bash tool não mantém estado entre chamadas (cada comando começa limpo) — `export JAVA_HOME=...` precisa estar na mesma chamada que usa o `mvnw`, não numa chamada anterior.
-- `./mvnw spring-boot:run` em background: parar a tarefa (TaskStop) mata o processo do wrapper, mas o processo `java.exe` filho (a API real) continua rodando — é preciso localizar e `taskkill /F` os PIDs de `java.exe` manualmente para liberar a porta 8080.
-- MySQL 8 recente resolvido pela tag `mysql:8` é a `8.4.x`.
+- O shell do Bash tool não mantém estado entre chamadas — `export JAVA_HOME=...` precisa estar na mesma chamada que usa o `mvnw`.
+- `./mvnw spring-boot:run` em background: parar a tarefa mata o wrapper, mas o `java.exe` filho continua rodando — localizar e `taskkill //F //PID` manualmente para liberar a porta 8080.
+- MySQL 8 recente resolvido pela tag `mysql:8` é a `8.4.x` — **`groups` é palavra reservada nessa versão** (ver bug acima).
+- `npx serve` serve o frontend estático sem exigir instalação prévia; o Live Server mencionado no fluxo normal de dev não estava disponível neste ambiente de teste.
+- Para testar como MONITOR/DESBRAVADOR é preciso um grupo + usuários de teste (não existem por padrão, só o admin seed) — criados via `POST /api/groups` e `POST /api/admin/users` com o token do DIRETOR, e removidos do banco ao final do teste.
+- `gh pr create` sem `--repo`/`--base` explícitos tentou abrir o PR contra o `upstream` (SilasTristoni/DesbravadoresTeste) em vez do `origin` — sempre passar `--repo PedroHMeira/desbravadores-expansao --base main` neste repositório.
 
 **Próximos passos ao retomar:**
-1. Esperar o usuário confirmar o teste manual de `feature/base-producao`.
-2. Commit + push da branch, `gh pr create`, merge na `main`.
-3. Começar `feature/chamada-completa`: explorar `ChamadaController`, `AttendanceRecord`, `chamada.js`, propor plano e esperar aprovação antes de implementar.
+1. Começar `feature/chamada-completa`: explorar `ChamadaController`, `AttendanceRecord`, `chamada.js`, propor plano e esperar aprovação antes de implementar.
