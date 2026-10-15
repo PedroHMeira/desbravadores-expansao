@@ -2,6 +2,7 @@
 
 // A função fetchApi e showToast estão disponíveis globalmente
 import { showToast as toastFunc } from '../../ui/toast.js'; // Ajuste o caminho se necessário
+import { escapeHtml } from '../../utils/sanitize.js';
 if (typeof window.showToast === 'undefined') {
     window.showToast = toastFunc;
 }
@@ -97,12 +98,12 @@ async function loadList(container, role, page = 0) {
               <tr>
                 <td>
                   <div class="user-info-cell">
-                    <img src="${user.avatar || 'img/escoteiro1.png'}" alt="Avatar" class="avatar-img-small">
-                    <span>${user.name} ${user.surname}</span>
+                    <img src="${escapeHtml(user.avatar) || 'img/escoteiro1.png'}" alt="Avatar" class="avatar-img-small">
+                    <span>${escapeHtml(user.name)} ${escapeHtml(user.surname)}</span>
                   </div>
                 </td>
-                <td>${user.email}</td>
-                <td>${user.group ? user.group.name : (role === 'DESBRAVADOR' ? 'Sem grupo' : 'Nenhum')}</td>
+                <td>${escapeHtml(user.email)}</td>
+                <td>${user.group ? escapeHtml(user.group.name) : (role === 'DESBRAVADOR' ? 'Sem grupo' : 'Nenhum')}</td>
               </tr>
             `).join('')}
           </tbody>
@@ -148,7 +149,7 @@ export async function renderManageUsersView(viewElement) {
         .map(detail => detail.group)
         .filter(group => group && group.id && group.name);
     const groupOptions = groups.map(group =>
-      `<option value="${group.id}">${group.name}</option>`
+      `<option value="${group.id}">${escapeHtml(group.name)}</option>`
     ).join('');
 
     // 2. Renderiza o HTML da view

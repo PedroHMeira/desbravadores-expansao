@@ -1,5 +1,7 @@
 // js/views/admin/manage-achievements.js
 
+import { escapeHtml } from '../../utils/sanitize.js';
+
 export async function renderManageAchievementsView(viewElement, userId) {
     if (!userId) {
         viewElement.innerHTML = `<p>Erro: Nenhum utilizador selecionado.</p>`;
@@ -18,7 +20,7 @@ export async function renderManageAchievementsView(viewElement, userId) {
 
         viewElement.innerHTML = `
             <div class="admin-widget">
-                <h2>Gerir Conquistas para: ${user.name} ${user.surname}</h2>
+                <h2>Gerir Conquistas para: ${escapeHtml(user.name)} ${escapeHtml(user.surname)}</h2>
                 <p>Clique em "Conceder" para desbloquear uma conquista para este usuário ou "Revogar" para removê-la.</p>
                 
                 <div class="achievements-management-list">
@@ -26,10 +28,10 @@ export async function renderManageAchievementsView(viewElement, userId) {
                         const isUnlocked = userUnlockedAchievementNames.has(achievement.name);
                         return `
                         <div class="achievement-manage-item">
-                            <img src="http://localhost:8080${achievement.icon}" alt="${achievement.name}" class="preview-icon">
+                            <img src="${window.API_BASE_URL}${achievement.icon}" alt="${escapeHtml(achievement.name)}" class="preview-icon">
                             <div class="achievement-info">
-                                <h4>${achievement.name} (+${achievement.xpReward} XP)</h4>
-                                <p>${achievement.description}</p>
+                                <h4>${escapeHtml(achievement.name)} (+${achievement.xpReward} XP)</h4>
+                                <p>${escapeHtml(achievement.description)}</p>
                             </div>
                             <button class="action-btn-small ${isUnlocked ? 'revoke-btn' : 'grant-btn'}" 
                                     data-user-id="${userId}" 

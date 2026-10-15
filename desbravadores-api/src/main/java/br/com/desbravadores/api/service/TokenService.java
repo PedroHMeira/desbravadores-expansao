@@ -1,19 +1,19 @@
 package br.com.desbravadores.api.service;
 
+import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Function;
 
-import org.springframework.beans.factory.annotation.Value; // IMPORT ADICIONADO
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Service;
 
 import br.com.desbravadores.api.model.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
-import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 
 @Service
@@ -23,13 +23,14 @@ public class TokenService {
     @Value("${jwt.expiration.ms}")
     private long expirationTimeMillis;
 
-    // A chave secreta continua a mesma
-    private final Key secretKey = Keys.secretKeyFor(SignatureAlgorithm.HS256);
+    // Chave fixa, derivada de 'jwt.secret'. Antes era gerada aleatoriamente a cada
+    // start, o que invalidava todos os tokens emitidos sempre que a API reiniciava.
+    private final Key secretKey;
 
-    /**
-     * MÉTODO ATUALIZADO
-     * Agora usa o tempo de expiração configurado no application.properties.
-     */
+    public TokenService(@Value("${jwt.secret}") String secret) {
+        this.secretKey = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
+    }
+
     public String generateToken(User user) {
         // Usa a variável injetada para calcular a data de expiração
         Date expirationDate = new Date(System.currentTimeMillis() + expirationTimeMillis);

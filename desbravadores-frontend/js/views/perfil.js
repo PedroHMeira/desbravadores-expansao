@@ -2,6 +2,7 @@
 
 // Importa showToast se ainda não estiver global
 import { showToast as toastFunc } from '../ui/toast.js'; // Ajuste o caminho se necessário
+import { escapeHtml } from '../utils/sanitize.js';
 if (typeof window.showToast === 'undefined') {
     window.showToast = toastFunc;
 }
@@ -36,8 +37,8 @@ let isEditing = false;
 function renderInfoDisplay(user) {
     return `
         <div class="info-display" id="profileInfoDisplay">
-            <h2>${user.name} ${user.surname}</h2>
-            <p>${user.group ? user.group.name : 'Sem Grupo'} • Nível ${user.level}</p>
+            <h2>${escapeHtml(user.name)} ${escapeHtml(user.surname)}</h2>
+            <p>${user.group ? escapeHtml(user.group.name) : 'Sem Grupo'} • Nível ${user.level}</p>
         </div>
     `;
 }
@@ -50,11 +51,11 @@ function renderEditForm(user) {
             <div class="form-row">
                 <div class="form-group">
                     <label for="edit-name">Nome</label>
-                    <input type="text" id="edit-name" value="${user.name}" required>
+                    <input type="text" id="edit-name" value="${escapeHtml(user.name)}" required>
                 </div>
                 <div class="form-group">
                     <label for="edit-surname">Sobrenome</label>
-                    <input type="text" id="edit-surname" value="${user.surname}" required>
+                    <input type="text" id="edit-surname" value="${escapeHtml(user.surname)}" required>
                 </div>
             </div>
             <div class="form-group">
@@ -207,7 +208,7 @@ function renderIdentityBlock(viewElement, user) {
     const isOwnProfile = !user.isOtherUser;
     const backgroundsGrid = allBackgrounds.map(bg => {
         // Corrige para usar API_BASE_URL se necessário, ou caminho relativo correto
-        const imageUrl = bg.imageUrl ? `http://localhost:8080${bg.imageUrl}` : null;
+        const imageUrl = bg.imageUrl ? `${window.API_BASE_URL}${bg.imageUrl}` : null;
         const style = imageUrl
             ? `background: url(${imageUrl}) center/cover no-repeat; color: ${bg.textColor || '#FFFFFF'};` // Default text color white
             : `background: ${bg.gradient || 'var(--scout-green)'}; color: ${bg.textColor || '#FFFFFF'};`; // Default gradient and text color
@@ -220,7 +221,7 @@ function renderIdentityBlock(viewElement, user) {
                  title="${isOwnProfile ? 'Clique para selecionar' : 'Visível apenas para perfil próprio'}">
                 <div class="background-preview" style="${style}"></div>
                 <div class="background-info">
-                    <strong>${bg.name}</strong>
+                    <strong>${escapeHtml(bg.name)}</strong>
                     ${isSelected ? ' (Selecionado)' : ''}
                 </div>
             </div>
@@ -255,7 +256,7 @@ function renderIdentityBlock(viewElement, user) {
                              previouslySelected.querySelector('.background-info').textContent = previouslySelected.querySelector('strong').textContent; // Remove (Selecionado)
                         }
                         thisCard.classList.add('selected');
-                         thisCard.querySelector('.background-info').innerHTML = `<strong>${thisCard.querySelector('strong').textContent}</strong> (Selecionado)`;
+                         thisCard.querySelector('.background-info').innerHTML = `<strong>${escapeHtml(thisCard.querySelector('strong').textContent)}</strong> (Selecionado)`;
 
 
                         showToast('Fundo do perfil atualizado!', 'success');
@@ -264,7 +265,7 @@ function renderIdentityBlock(viewElement, user) {
                         const selectedBgData = allBackgrounds.find(bg => bg.id == bgId);
                          if (selectedBgData) {
                             const identityBlock = viewElement.querySelector('#identityBlock');
-                            const newImageUrl = selectedBgData.imageUrl ? `http://localhost:8080${selectedBgData.imageUrl}` : null;
+                            const newImageUrl = selectedBgData.imageUrl ? `${window.API_BASE_URL}${selectedBgData.imageUrl}` : null;
                             const newStyle = newImageUrl
                                 ? `background: url(${newImageUrl}) center/cover no-repeat; color: ${selectedBgData.textColor || '#FFFFFF'};`
                                 : `background: ${selectedBgData.gradient || 'var(--scout-green)'}; color: ${selectedBgData.textColor || '#FFFFFF'};`;
@@ -304,7 +305,8 @@ export async function renderProfileView(viewElement, userId = null) {
         currentUserData = user; // Guarda os dados atuais
         isEditing = false; // Garante que começa no modo visualização
 
-        const allBackgrounds = await fetchApi('/api/backgrounds'); // Busca fundos aqui
+        const backgroundsPage = await fetchApi('/api/backgrounds?page=0&size=999');
+        const allBackgrounds = backgroundsPage.content; // Busca fundos aqui
 
         const currentUserPayload = getUserPayload();
         const isAdminViewingOther = (currentUserPayload?.role === 'DIRETOR' || currentUserPayload?.role === 'MONITOR') && user.isOtherUser;
@@ -316,14 +318,14 @@ export async function renderProfileView(viewElement, userId = null) {
         let avatarUrl;
         if (user.avatar && user.avatar.startsWith('/file/')) {
             // Se for um avatar do upload, usa o host da API + o caminho + timestamp
-            avatarUrl = `http://localhost:8080${user.avatar}?${new Date().getTime()}`;
+            avatarUrl = `${window.API_BASE_URL}${user.avatar}?${new Date().getTime()}`;
         } else {
             // Se for o avatar padrão (ou null), usa o caminho local
             avatarUrl = (user.avatar || 'img/escoteiro1.png');
         }
         // --- FIM DA CORREÇÃO ---
         
-        const bgImageUrl = bg?.imageUrl ? `http://localhost:8080${bg.imageUrl}` : null;
+        const bgImageUrl = bg?.imageUrl ? `${window.API_BASE_URL}${bg.imageUrl}` : null;
         const backgroundStyle = bgImageUrl
             ? `background: url(${bgImageUrl}) center/cover no-repeat; color: ${bg.textColor || '#FFFFFF'};`
             : `background: ${bg?.gradient || 'var(--scout-green)'}; color: ${bg?.textColor || '#FFFFFF'};`;
@@ -339,9 +341,7 @@ export async function renderProfileView(viewElement, userId = null) {
                     <div class="profile-identity-header" style="display: flex; align-items: flex-start; width: 100%;">
                         <img src="${avatarUrl}" alt="Avatar" class="avatar-img">
                         <div style="flex-grow: 1; display: flex; justify-content: space-between; align-items: flex-start; margin-left: 1.5rem;">
-                            <div class="info-and-edit-wrapper" id="info-and-edit-wrapper">
-                                {/* Conteúdo será renderizado por renderIdentityBlock */}
-                            </div>
+                            <div class="info-and-edit-wrapper" id="info-and-edit-wrapper"></div>
                             ${isOwnProfile ? '<button class="edit-btn" id="editProfileBtn" title="Editar Perfil">✏️</button>' : ''}
                         </div>
                     </div>
@@ -377,9 +377,9 @@ export async function renderProfileView(viewElement, userId = null) {
 	                        <div id="badges-tab-content" class="tab-content active">
                             <div class="badges-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(80px, 1fr)); gap: 1rem; justify-items: center;">
                                 ${user.badges && user.badges.length > 0 ? user.badges.map(badge => `
-                                    <div class="badge-item" title="${badge.name}: ${badge.description}">
-                                        <img src="http://localhost:8080${badge.icon}" alt="${badge.name}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 3px solid var(--scout-gold);">
-                                        <div class="badge-name" style="font-size: 0.8rem; margin-top: 5px; color: var(--text-secondary);">${badge.name}</div>
+                                    <div class="badge-item" title="${escapeHtml(badge.name)}: ${escapeHtml(badge.description)}">
+                                        <img src="${window.API_BASE_URL}${badge.icon}" alt="${escapeHtml(badge.name)}" style="width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 3px solid var(--scout-gold);">
+                                        <div class="badge-name" style="font-size: 0.8rem; margin-top: 5px; color: var(--text-secondary);">${escapeHtml(badge.name)}</div>
                                     </div>
                                 `).join('') : '<p style="grid-column: 1 / -1;">Nenhum emblema conquistado ainda.</p>'}
                             </div>

@@ -25,7 +25,7 @@ export async function renderConquistasView(viewElement) {
                         return `
                             <div class="achievement-card-full ${isUnlocked ? 'unlocked' : 'locked'}">
                                 <div class="achievement-header">
-                                    <img src="http://localhost:8080${achievement.icon}" alt="${achievement.name}" class="achievement-icon-full">
+                                    <img src="${window.API_BASE_URL}${achievement.icon}" alt="${achievement.name}" class="achievement-icon-full">
                                     <div class="achievement-details">
                                         <h3>${achievement.name}</h3>
                                         <p>${achievement.description}</p>

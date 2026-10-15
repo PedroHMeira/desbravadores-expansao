@@ -2,6 +2,8 @@
 
 // A função fetchApi e showToast estarão disponíveis globalmente
 
+import { escapeHtml } from '../../utils/sanitize.js';
+
 export async function renderChamadaView(viewElement) {
 
     const today = new Date().toISOString().split('T')[0];
@@ -41,10 +43,9 @@ export async function renderChamadaView(viewElement) {
 
         studentListContainer.innerHTML = members.map(student => `
             <div class="student-card" data-student-id="${student.id}">
-                {/* Usando avatar real ou padrão */}
-                <img src="${student.avatar || 'img/escoteiro1.png'}" alt="${student.name}" class="student-photo">
+                <img src="${escapeHtml(student.avatar) || 'img/escoteiro1.png'}" alt="${escapeHtml(student.name)}" class="student-photo">
                 <div class="student-info">
-                    <div class="student-name">${student.name} ${student.surname}</div>
+                    <div class="student-name">${escapeHtml(student.name)} ${escapeHtml(student.surname)}</div>
                 </div>
                 <span class="check-icon">✔️</span>
             </div>
