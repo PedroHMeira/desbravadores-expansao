@@ -226,22 +226,34 @@ async function renderReportWidget(viewElement) {
                 return;
             }
 
+            const reportStatusLabels = {
+                PRESENTE: 'Presente',
+                FALTA: 'Falta',
+                FALTA_JUSTIFICADA: 'Falta Justificada',
+                AUSENTE: 'Chamada não registada',
+            };
+
             reportContainer.innerHTML = `
-                <h3>Relatório de Presença - ${new Date(selectedDate).toLocaleDateString()}</h3>
+                <h3>Relatório de Presença - ${new Date(selectedDate + 'T00:00:00').toLocaleDateString()}</h3>
                 <table class="user-table">
                     <thead>
                         <tr>
                             <th>Nome do Aluno</th>
                             <th>Status</th>
+                            <th>Uniforme</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${reportData.map(item => `
-                            <tr>
-                                <td>${escapeHtml(item.name)}</td>
-                                <td class="status-${item.status.toLowerCase()}">${item.status}</td>
-                            </tr>
-                        `).join('')}
+                        ${reportData.map(item => {
+                            const uniformCount = [item.lenco, item.camisa, item.calca, item.tenis].filter(Boolean).length;
+                            return `
+                                <tr>
+                                    <td>${escapeHtml(item.name)}</td>
+                                    <td class="status-${item.status.toLowerCase()}" title="${item.justification ? escapeHtml(item.justification) : ''}">${reportStatusLabels[item.status] || item.status}</td>
+                                    <td>${item.status === 'PRESENTE' ? `${uniformCount}/4` : '-'}</td>
+                                </tr>
+                            `;
+                        }).join('')}
                     </tbody>
                 </table>
                 <button id="print-report-btn" class="action-btn" style="width: auto; padding: 10px 15px; margin-top: 1rem;">Imprimir</button>
@@ -274,9 +286,11 @@ async function renderReportWidget(viewElement) {
 
     if (isDirector && reportGroupInput) {
         reportGroupInput.addEventListener('change', (e) => {
-            // Reseta para a primeira página ao mudar o filtro
-            currentPage = 0; 
-            renderDashboardData(viewElement);
+            // Reseta para a primeira página ao mudar o filtro.
+            // Chama só a lista de usuários: renderDashboardData reconstruiria este próprio
+            // widget (incluindo o <select>), perdendo a seleção que acabou de ser feita.
+            currentPage = 0;
+            renderUserList(viewElement, reportGroupInput.value === "" ? null : reportGroupInput.value);
         });
     }
 }

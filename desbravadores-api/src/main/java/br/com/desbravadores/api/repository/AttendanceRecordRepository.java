@@ -2,6 +2,7 @@ package br.com.desbravadores.api.repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository; // IMPORT ADICIONADO
@@ -17,4 +18,7 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
 
     // NOVO MÉTODO: Procura todos os registos de presença para um usuário específico.
     List<AttendanceRecord> findByUserIdOrderByDateDesc(Long userId);
+
+    // Usado para upsert: existe registo deste aluno nesta data? Se sim, atualiza em vez de duplicar.
+    Optional<AttendanceRecord> findByUserIdAndDate(Long userId, LocalDate date);
 }
